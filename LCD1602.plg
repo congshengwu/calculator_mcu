@@ -1,0 +1,24 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Project:</h2>
+D:\MCU\projects\calculator_mcu\LCD1602.uvproj
+Project File Date:  07/09/2017
+
+<h2>Output:</h2>
+compiling mian.c...
+mian.c - 0 Error(s), 0 Warning(s).
+Build target 'Target 1'
+compiling calculate.c...
+linking...
+Program Size: data=15.1 xdata=712 code=15834
+creating hex file from "LCD1602"...
+"LCD1602" - 0 Error(s), 0 Warning(s).
+compiling mian.c...
+mian.c - 0 Error(s), 0 Warning(s).
+Build target 'Target 1'
+linking...
+Program Size: data=15.1 xdata=712 code=15834
+creating hex file from "LCD1602"...
+"LCD1602" - 0 Error(s), 0 Warning(s).

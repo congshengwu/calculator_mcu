@@ -1,0 +1,272 @@
+C51 COMPILER V9.01   LCD1602                                                               07/07/2017 20:53:50 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE LCD1602
+OBJECT MODULE PLACED IN LCD1602.OBJ
+COMPILER INVOKED BY: D:\MCU\keil4\C51\BIN\C51.EXE LCD1602.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          /**************************************************************************************
+   2          *                             LCD1602液晶显示实验                                                                                                 *
+   3          实现现象：      具体接线操作请参考视频教程
+   4                                  下载程序后插上LCD1602液晶在开发板上，即可显示
+   5          注意事项：                                                                                                                                                                
+   6          ***************************************************************************************/
+   7          
+   8          #include <reg52.h>              //此文件中定义了单片机的一些特殊功能寄存器
+   9          #include <stdio.h>
+  10          #include <string.h>
+  11          #include "lcd.h"
+  12          #include "calculate.h"
+  13          
+  14          #define GPIO_KEY P1             //矩阵按键控制口
+  15          
+  16          /*
+  17          sbit btn_left= P3^0;
+  18          sbit btn_right=P3^1;                    
+  19          sbit btn_dot = P3^2;    //定义P3.2口是k3，"小数点"按钮
+  20          sbit btn_eq  = P3^3;    //定义P3.3口是k4，"等于"按钮
+  21          sbit btn_del = P3^4;    //定义P3.6口是k7，"删除"按钮
+  22          sbit btn_cls = P3^5 ;   //定义P3.7口是k8，"清空"按钮
+  23          */
+  24          sbit btn_eq = P3^0;
+  25          sbit btn_dot = P3^1;
+  26          sbit btn_cls = P3^2;    //定义P3.2口是k3，"小数点"按钮
+  27          sbit btn_del = P3^3;    //定义P3.3口是k4，"等于"按钮
+  28          sbit btn_left = P3^4;   //定义P3.6口是k7，"删除"按钮
+  29          sbit btn_right = P3^5;  //定义P3.7口是k8，"清空"按钮
+  30          
+  31          typedef unsigned int u16;       //对数据类型进行声明定义
+  32          typedef unsigned char u8;
+  33          
+  34          u8 KeyValue;                            //存矩阵按键的位置 0~15
+  35          u8 calc_arr[30] = { 0 };        //计算式字符串
+  36          u8 calc_len = 0;                        //计算式长度,下标，为其赋值
+  37          u8 result_arr[16] = { 0 };      //结果字符串，长度用strlen函数得出
+  38          
+  39          u8 code char_red[16] = {'7', '8', '9', '/', 
+  40                                                          '4', '5', '6', '*', 
+  41                                                          '1', '2', '3', '-', 
+  42                                                          '(', '0', ')', '+'  }; 
+  43          
+  44          void delay(u16 i)
+  45          {
+  46   1              while(i--);
+  47   1      }
+  48          
+  49          void delay2s(void)   //误差 0us
+  50          {
+  51   1          unsigned char a,b,c,n;
+  52   1          for(c=167;c>0;c--)
+  53   1              for(b=39;b>0;b--)
+  54   1                  for(a=152;a>0;a--);
+  55   1          for(n=1;n>0;n--);
+C51 COMPILER V9.01   LCD1602                                                               07/07/2017 20:53:50 PAGE 2   
+
+  56   1      }
+  57          
+  58          void moveTo_left()
+  59          {
+  60   1              LcdWriteCom(0x18);//向左移
+  61   1      }
+  62          void moveTo_right()
+  63          {
+  64   1              LcdWriteCom(0x1c);//向右移
+  65   1      }
+  66                  
+  67          void display_up(u8 calc_arr[])
+  68          {
+  69   1              u8 i;
+  70   1              LcdWriteCom(0x80);
+  71   1              for(i = 0; i < strlen(calc_arr); i++)
+  72   1              {
+  73   2                      LcdWriteData(calc_arr[i]);
+  74   2              }                       
+  75   1      }
+  76          
+  77          void display_down(u8 result_arr[])
+  78          {
+  79   1              u8 i;
+  80   1              LcdWriteCom(0x80 + 0x40);
+  81   1              for(i = 0; i < strlen(result_arr); i++)
+  82   1              {
+  83   2                      LcdWriteData(result_arr[i]);
+  84   2              }                       
+  85   1      }
+  86          
+  87          void OnRedKeyDown()
+  88          {
+  89   1              char a = 0;
+  90   1              u8 i = 0;
+  91   1              GPIO_KEY = 0x0f;//高四位低电平，底四位高电平
+  92   1              if(GPIO_KEY != 0x0f)
+  93   1              {
+  94   2                      delay(1000);//延时10ms消抖
+  95   2                      if(GPIO_KEY != 0x0f)
+  96   2                      {
+  97   3                              //扫描列
+  98   3                              switch(GPIO_KEY)
+  99   3                              {
+ 100   4                                      case 0x07: 
+ 101   4                                              KeyValue = 0; 
+ 102   4                                              break;
+ 103   4                                      case 0x0b:
+ 104   4                                              KeyValue = 1;
+ 105   4                                              break;
+ 106   4                                      case 0x0d:
+ 107   4                                              KeyValue = 2;
+ 108   4                                              break;
+ 109   4                                      case 0x0e:
+ 110   4                                              KeyValue = 3;
+ 111   4                                              break;   
+ 112   4                              }
+ 113   3                              //线转发，扫描行
+ 114   3                              GPIO_KEY = 0xf0;
+ 115   3                              switch(GPIO_KEY)
+ 116   3                              {
+ 117   4                                      case 0x70: 
+C51 COMPILER V9.01   LCD1602                                                               07/07/2017 20:53:50 PAGE 3   
+
+ 118   4                                              KeyValue = KeyValue; 
+ 119   4                                              break;
+ 120   4                                      case 0xb0:
+ 121   4                                              KeyValue = KeyValue + 4;
+ 122   4                                              break;
+ 123   4                                      case 0xd0:
+ 124   4                                              KeyValue = KeyValue + 8;
+ 125   4                                              break;
+ 126   4                                      case 0xe0:
+ 127   4                                              KeyValue = KeyValue + 12;
+ 128   4                                              break;   
+ 129   4                              }
+ 130   3                              calc_arr[calc_len] = char_red[KeyValue];
+ 131   3                              calc_len++;
+ 132   3                              
+ 133   3                              if(strlen(calc_arr) > 16)//超出显示屏长度，公式左移
+ 134   3                                      moveTo_left();  
+ 135   3      
+ 136   3                              display_up(calc_arr);
+ 137   3      
+ 138   3                              //长时间按,强制退出，等于0xf0说明没有按键按下
+ 139   3                              while((a < 50) && (GPIO_KEY != 0xf0))//a<50并且按键按下
+ 140   3                              {
+ 141   4                                      delay(1000);
+ 142   4                                      a++;
+ 143   4                              }
+ 144   3                      }                       
+ 145   2              }
+ 146   1      }
+ 147          
+ 148          void OnBlackKeyDown()
+ 149          {
+ 150   1              double result;
+ 151   1              u8 i = 0;
+ 152   1              if(btn_eq == 0)           //检测按键K1是否按下
+ 153   1              {       
+ 154   2                      delay(1000);   //消除抖动 一般大约10ms
+ 155   2                      if(btn_eq == 0)  //再次判断按键是否按下
+ 156   2                      {
+ 157   3                              //执行代码
+ 158   3                              result = calculate(calc_arr);
+ 159   3                              sprintf(result_arr, result == (int)result ? "%.0f" : "%.6f", result);                           
+ 160   3                              display_down(result_arr);
+ 161   3                      }
+ 162   2                      while(!btn_eq);  //检测按键是否松开
+ 163   2              }
+ 164   1              else if(btn_dot == 0)
+ 165   1              {
+ 166   2                      delay(1000);   //消除抖动 一般大约10ms
+ 167   2                      if(btn_dot == 0)         //再次判断按键是否按下
+ 168   2                      {
+ 169   3                              //执行代码
+ 170   3                              calc_len++;
+ 171   3                              calc_arr[calc_len - 1] = '.';
+ 172   3                              display_up(calc_arr);
+ 173   3                      }
+ 174   2                      while(!btn_dot);         //检测按键是否松开
+ 175   2              }
+ 176   1              else if(btn_del == 0)
+ 177   1              {
+ 178   2                      delay(1000);   //消除抖动 一般大约10ms
+ 179   2                      if(btn_del == 0)         //再次判断按键是否按下
+C51 COMPILER V9.01   LCD1602                                                               07/07/2017 20:53:50 PAGE 4   
+
+ 180   2                      {
+ 181   3                              //执行代码
+ 182   3                              calc_arr[calc_len - 1] = ' ';
+ 183   3                              display_up(calc_arr);
+ 184   3                              calc_arr[calc_len - 1] = '\0';
+ 185   3                              calc_len--;
+ 186   3                      }
+ 187   2                      while(!btn_del);         //检测按键是否松开
+ 188   2              }
+ 189   1              else if(btn_cls == 0)
+ 190   1              {
+ 191   2                      delay(1000);   //消除抖动 一般大约10ms
+ 192   2                      if(btn_cls == 0)         //再次判断按键是否按下
+ 193   2                      {
+ 194   3                              
+ 195   3                              //清空显示
+ 196   3                              LcdWriteCom(0x01);//清屏,同时好像也归位了
+ 197   3                              //清空式子和结果数组
+ 198   3                              memset(calc_arr, 0, sizeof(calc_arr));
+ 199   3                              memset(result_arr, 0, sizeof(result_arr));
+ 200   3                              calc_len = 0;
+ 201   3                      }
+ 202   2                      while(!btn_cls);         //检测按键是否松开
+ 203   2              }
+ 204   1              else if(btn_left == 0)
+ 205   1              {
+ 206   2                      delay(1000);   //消除抖动 一般大约10ms          
+ 207   2                      if(btn_left == 0)//长度超过16方可移动
+ 208   2                      {
+ 209   3                              moveTo_right();
+ 210   3                      }
+ 211   2                      while(!btn_left);
+ 212   2              }
+ 213   1              else if(btn_right == 0)
+ 214   1              {
+ 215   2                      delay(1000);   //消除抖动 一般大约10ms          
+ 216   2                      if(btn_right == 0)
+ 217   2                      {
+ 218   3                              moveTo_left();
+ 219   3                      }
+ 220   2                      while(!btn_right);
+ 221   2              }
+ 222   1      }
+ 223          
+ 224          
+ 225          void main(void)
+ 226          {
+ 227   1              char cc[16] = " CC Calculator  ";
+ 228   1              char ccc[16]= "    Welcome     ";
+ 229   1              LcdInit();
+ 230   1      
+ 231   1              display_up(cc);
+ 232   1              display_down(ccc);
+ 233   1              delay2s();      
+ 234   1              LcdWriteCom(0x01);//清空显示
+ 235   1              
+ 236   1              while(1)
+ 237   1              {               
+ 238   2                      OnRedKeyDown();
+ 239   2                      OnBlackKeyDown();
+ 240   2              }                               
+ 241   1      }
+C51 COMPILER V9.01   LCD1602                                                               07/07/2017 20:53:50 PAGE 5   
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    829    ----
+   CONSTANT SIZE    =     58    ----
+   XDATA SIZE       =     48      47
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

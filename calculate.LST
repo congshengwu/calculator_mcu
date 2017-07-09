@@ -1,0 +1,570 @@
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE CALCULATE
+OBJECT MODULE PLACED IN calculate.OBJ
+COMPILER INVOKED BY: D:\MCU\keil4\C51\BIN\C51.EXE calculate.c LARGE BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "calculate.h"
+   2          
+   3          #define LEN 99//计算式最大长度,可以自定义
+   4          
+   5          
+   6          double calculate(char *c){
+   7   1              //c是存计算式字符串的指针
+   8   1              double result=0;//最终返回变量
+   9   1              int c_len=strlen(c);
+  10   1              int i,k;//i当过数组下标
+  11   1              double temp,j;
+  12   1              double opnd[LEN];//操作数栈,能存10个操作数,包括小数点
+  13   1              int opnd_index=0;
+  14   1              char optr[LEN]="";//操作符栈
+  15   1              
+  16   1              int optr_index=0;
+  17   1              /*当 ) 进入栈的时候，会将 (……)里的计算式都处理了,
+  18   1              左栈存一个两个数结合的新数,右栈指针指向(,
+  19   1              紧接着再右栈再输入 +-×÷* 就不许先不需要计算了,直接替换 ) */
+  20   1              int CalByButton_r=0;//等于0是 ) 处理式子之前
+  21   1              char num_stack[LEN]="";//临时数栈
+  22   1              int num_stack_index=0;//临时数下标
+  23   1              double num_temp=0;//临时数
+  24   1              optr[0]=0;
+  25   1              //注意：while的最后一次运行是 数字的，所以数字下面的判断都不会执行
+  26   1              while(c_len) {//+-×÷.肯不会在字符串开头 (可能在开头，需要处理
+  27   2                      c_len--;
+  28   2                      //*c是数字情况，包括小数点
+  29   2                      if((*c<='9' && *c>='0') || (*c=='.')) {
+  30   3                              num_stack[num_stack_index]=*c;
+  31   3                              num_stack_index++;
+  32   3                              c++;
+  33   3                              continue;
+  34   3                      }
+  35   2                      //*c是 + 情况
+  36   2                      if(*c=='+') {
+  37   3                              num_stack_index--;
+  38   3                              if(num_stack_index==-1){// ) 已经提取一遍左面了，) 后的运算符 就不用再提左面了
+  39   4                                      num_stack_index=0;
+  40   4                                      goto c1;
+  41   4                              }
+  42   3                              //将+前一个数抽出存入opnd，num_temp是从字符串中成功抽取的一个数,并且已经变成double
+  43   3                              for(i=num_stack_index,j=1; i>=0; i--,j*=10) {
+  44   4                                      if(num_stack[i] != '.')
+  45   4                                              num_temp+=((num_stack[i]-'0')*j);
+  46   4                                      
+  47   4                                      if(num_stack[i]=='.'){
+  48   5                                              for(k=num_stack_index-i;k>0;k--) {
+  49   6                                                      num_temp/=10;
+  50   6                                              }
+  51   5                                              j=0.1;//下一次j还是1
+  52   5                                      }
+  53   4                              }
+  54   3                              opnd[opnd_index]=num_temp;
+  55   3                              opnd_index++;
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 2   
+
+  56   3                              num_temp=0;//临时数初始化
+  57   3                              num_stack_index=0;//临时栈下标初始化
+  58   3                              c1:
+  59   3                              //存 + 的一些操作
+  60   3                              if(optr[optr_index]==0) {//如果optr为空,直接进入，之后直到到最终计算之前都不会为空了
+  61   4                                      optr[optr_index]='+';//先不++，因为下面是判断上一个入栈负号
+  62   4                              }//如果optr不为空，+ 是 直接抽出里面的进行运算，再存
+  63   3                              else if(optr[optr_index]=='+') {//左提俩求和=新数，将新数存进opnd,+号不错废掉
+  64   4                                      opnd_index-=2;//减去多加的 和 二合一之后位置为下面那个
+  65   4                                      temp=opnd[opnd_index]+opnd[opnd_index+1];
+  66   4                                      opnd[opnd_index]=temp;
+  67   4                                      opnd_index++;//
+  68   4                                      
+  69   4                                      optr[optr_index]='+';//直接替换掉原来下标为这个的符号
+  70   4                              }else if(optr[optr_index]=='-') {
+  71   4                                      opnd_index-=2;
+  72   4                                      temp=opnd[opnd_index]-opnd[opnd_index+1];
+  73   4                                      opnd[opnd_index]=temp;
+  74   4                                      opnd_index++;
+  75   4                                      
+  76   4                                      optr[optr_index]='+';//直接替换掉原来下标为这个的符号
+  77   4                              }else if(optr[optr_index]=='*') {//+遇到
+  78   4                                      opnd_index-=2;
+  79   4                                      temp=opnd[opnd_index]*opnd[opnd_index+1];
+  80   4                                      opnd[opnd_index]=temp;
+  81   4                                      opnd_index++;
+  82   4                                      while(1){//处理 6+8-4*2+6-10 的 bug
+  83   5                                              if(optr[optr_index-1]=='+' || optr[optr_index-1]=='-'){
+  84   6                                                      optr_index--;
+  85   6                                                      opnd_index-=2;
+  86   6                                                      switch(optr[optr_index]){
+  87   7                                                              case '+': opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+  88   7                                                              case '-': opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+  89   7                                                      }
+  90   6                                                      opnd_index++;
+  91   6                                              }
+  92   5                                              break;
+  93   5                                      }
+  94   4                                      optr[optr_index]='+';//直接替换掉原来下标为这个的符号
+  95   4                              }else if(optr[optr_index]=='/') {
+  96   4                                      opnd_index-=2;
+  97   4                                      temp=opnd[opnd_index]/opnd[opnd_index+1];
+  98   4                                      opnd[opnd_index]=temp;
+  99   4                                      opnd_index++;
+ 100   4                                      
+ 101   4                                      while(1){//处理 6+8-4/2+6-10 的 bug
+ 102   5                                              if (optr_index - 1 < 0)//防止数组越界
+ 103   5                              break;
+ 104   5                                              if(optr[optr_index-1]=='+' || optr[optr_index-1]=='-'){
+ 105   6                                                      optr_index--;
+ 106   6                                                      opnd_index-=2;
+ 107   6                                                      switch(optr[optr_index]){
+ 108   7                                                              case '+': opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 109   7                                                              case '-': opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 110   7                                                      }
+ 111   6                                                      opnd_index++;
+ 112   6                                              }
+ 113   5                                              break;
+ 114   5                                      }
+ 115   4                                      optr[optr_index]='+';//直接替换掉原来下标为这个的符号
+ 116   4                              }else if(optr[optr_index]=='('){//如果是 ( 直接存进去
+ 117   4                                      if(CalByButton_r==1){//这个情况是遇到 由 ) 计算后 的 ( ; 不是输入 ) 前的 (
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 3   
+
+ 118   5                                              if((optr_index-1)>=0){//处理 6*(1-2*2)+3会=0 的问题 存之前应该再判断一下 原 ( 下的符号*/                                                                                        
+ 119   6                                                      optr_index--;
+ 120   6                                                      opnd_index-=2;
+ 121   6                                                      switch(optr[optr_index]){ //这是运算符栈顶符号，此时 ) 没存进去
+ 122   7                                                              case '+':opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 123   7                                                              case '-':opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 124   7                                                              case '*':opnd[opnd_index]=opnd[opnd_index]*opnd[opnd_index+1];break;
+ 125   7                                                              case '/':opnd[opnd_index]=opnd[opnd_index]/opnd[opnd_index+1];break;
+ 126   7                                                              //下面这个case是处理 ( 下还是 ( 的情况 
+ 127   7                                                              case '(':optr_index++;opnd_index++;break;//只需将optr_index和opnd_index归位即可                                                 
+ 128   7                                                      }
+ 129   6                                                      opnd_index++;
+ 130   6                                                      optr[optr_index]='+';
+ 131   6                                                      CalByButton_r=0;//归位
+ 132   6                                                      while(1){
+ 133   7                                                              if (optr_index - 1 < 0)//防止数组越界
+ 134   7                                                                      break;
+ 135   7                                                              if(optr[optr_index-1]=='+' || optr[optr_index-1]=='-'){
+ 136   8                                                                      optr_index--;
+ 137   8                                                                      opnd_index-=2;
+ 138   8                                                                      switch(optr[optr_index]){
+ 139   9                                                                              case '+': opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 140   9                                                                              case '-': opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 141   9                                                                      }
+ 142   8                                                              opnd_index++;
+ 143   8                                                              }
+ 144   7                                                              optr[optr_index]='+';
+ 145   7                                                              break;
+ 146   7                                                      }
+ 147   6                                                      c++;
+ 148   6                                                      continue;
+ 149   6                                              }
+ 150   5                                              optr[optr_index]='+';
+ 151   5                                              CalByButton_r=0;//归位
+ 152   5                                              c++;
+ 153   5                                              continue;
+ 154   5                                      }
+ 155   4                                      optr_index++;
+ 156   4                                      optr[optr_index]='+';
+ 157   4                              }
+ 158   3                              c++;
+ 159   3                              continue;
+ 160   3                      }
+ 161   2                      //*c是 - 情况，和 + 一样  负号处理在 符号(中
+ 162   2                      if(*c=='-') {
+ 163   3                              num_stack_index--;
+ 164   3                              if(num_stack_index==-1){// ) 已经提取一遍左面了，) 后的运算符 就不用再提左面了
+ 165   4                                      num_stack_index=0;
+ 166   4                                      goto c2;
+ 167   4                              }
+ 168   3                              //将-前一个数抽出存入opnd，num_temp是从字符串中成功抽取的一个数,并且已经变成double
+ 169   3                              for(i=num_stack_index,j=1; i>=0; i--,j*=10) {
+ 170   4                                      if(num_stack[i] != '.')
+ 171   4                                              num_temp+=((num_stack[i]-'0')*j);
+ 172   4                                      
+ 173   4                                      if(num_stack[i]=='.'){
+ 174   5                                              for(k=num_stack_index-i;k>0;k--) {
+ 175   6                                                      num_temp/=10;
+ 176   6                                              }
+ 177   5                                              j=0.1;//下一次j还是1
+ 178   5                                      }
+ 179   4                              }
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 4   
+
+ 180   3                              opnd[opnd_index]=num_temp;
+ 181   3                              opnd_index++;
+ 182   3                              num_temp=0;//临时数初始化
+ 183   3                              num_stack_index=0;//临时栈下标初始化
+ 184   3                              c2:
+ 185   3                              //存 - 的一些操作
+ 186   3                              if(optr[optr_index]==0) {//如果optr为空,直接进入
+ 187   4                                      optr[optr_index]='-';//先不++，因为下面是判断上一个入栈负号
+ 188   4                              }//如果optr不为空，+ 是 直接抽出里面的进行运算，再存
+ 189   3                              else if(optr[optr_index]=='+') {//左提俩求和=新数，将新数存进opnd,+号不错废掉
+ 190   4                                      opnd_index-=2;//减去多加的 和 二合一之后位置为下面那个
+ 191   4                                      temp=opnd[opnd_index]+opnd[opnd_index+1];
+ 192   4                                      opnd[opnd_index]=temp;
+ 193   4                                      opnd_index++;//
+ 194   4                                      
+ 195   4                                      optr[optr_index]='-';//直接替换掉原来下标为这个的符号
+ 196   4                              }else if(optr[optr_index]=='-') {
+ 197   4                                      opnd_index-=2;
+ 198   4                                      temp=opnd[opnd_index]-opnd[opnd_index+1];
+ 199   4                                      opnd[opnd_index]=temp;
+ 200   4                                      opnd_index++;
+ 201   4                                      
+ 202   4                                      optr[optr_index]='-';//直接替换掉原来下标为这个的符号
+ 203   4                              }else if(optr[optr_index]=='*') {//+遇到
+ 204   4                                      opnd_index-=2;
+ 205   4                                      temp=opnd[opnd_index]*opnd[opnd_index+1];
+ 206   4                                      opnd[opnd_index]=temp;
+ 207   4                                      opnd_index++;
+ 208   4                                      while(1){//处理 6+8-4/2+6-10 的 bug
+ 209   5                                              if(optr[optr_index-1]=='+' || optr[optr_index-1]=='-'){
+ 210   6                                                      optr_index--;
+ 211   6                                                      opnd_index-=2;
+ 212   6                                                      switch(optr[optr_index]){
+ 213   7                                                              case '+': opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 214   7                                                              case '-': opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 215   7                                                      }
+ 216   6                                                      opnd_index++;
+ 217   6                                              }
+ 218   5                                              break;
+ 219   5                                      }
+ 220   4                                      optr[optr_index]='-';//直接替换掉原来下标为这个的符号
+ 221   4                              }else if(optr[optr_index]=='/') {
+ 222   4                                      opnd_index-=2;
+ 223   4                                      temp=opnd[opnd_index]/opnd[opnd_index+1];
+ 224   4                                      opnd[opnd_index]=temp;
+ 225   4                                      opnd_index++;
+ 226   4                                      while(1){//处理 6+8-4/2+6-10 的 bug
+ 227   5                                              if (optr_index - 1 < 0)//防止数组越界
+ 228   5                              break;
+ 229   5                                              if(optr[optr_index-1]=='+' || optr[optr_index-1]=='-'){
+ 230   6                                                      optr_index--;
+ 231   6                                                      opnd_index-=2;
+ 232   6                                                      switch(optr[optr_index]){
+ 233   7                                                              case '+': opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 234   7                                                              case '-': opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 235   7                                                      }
+ 236   6                                                      opnd_index++;
+ 237   6                                              }
+ 238   5                                              break;
+ 239   5                                      }
+ 240   4                                      optr[optr_index]='-';//直接替换掉原来下标为这个的符号
+ 241   4                              }else if(optr[optr_index]=='('){//如果是 ( 直接存进去
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 5   
+
+ 242   4                                      if(CalByButton_r==1){//这个情况是 由 ) 计算后 的 ( 遗留
+ 243   5                                              if((optr_index-1)>=0){//处理 6*(1-2*2)+3会=0 的问题 /*存之前应该再判断一下 原 ( 下的符号*/      
+ 244   6                                                      optr_index--;
+ 245   6                                                      opnd_index-=2;
+ 246   6                                                      switch(optr[optr_index]){ //这是运算符栈顶符号，此时 ) 没存进去
+ 247   7                                                              case '+':opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 248   7                                                              case '-':opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 249   7                                                              case '*':opnd[opnd_index]=opnd[opnd_index]*opnd[opnd_index+1];break;
+ 250   7                                                              case '/':opnd[opnd_index]=opnd[opnd_index]/opnd[opnd_index+1];break;
+ 251   7                                                              case '(':optr_index++;opnd_index++;break;
+ 252   7                                                              //如果是 ( 下还是 ( 只需将optr_index和opnd_index归位即可
+ 253   7                                                      }
+ 254   6                                                      opnd_index++;
+ 255   6                                                      optr[optr_index]='-';
+ 256   6                                                      CalByButton_r=0;//归位
+ 257   6                                                      c++;
+ 258   6                                                      continue;
+ 259   6                                              }
+ 260   5                                              optr[optr_index]='-';
+ 261   5                                              CalByButton_r=0;//归位
+ 262   5                                              while(1){
+ 263   6                                                      if (optr_index - 1 < 0)//防止数组越界
+ 264   6                                                              break;
+ 265   6                                                      if(optr[optr_index-1]=='+' || optr[optr_index-1]=='-'){
+ 266   7                                                              optr_index--;
+ 267   7                                                              opnd_index-=2;
+ 268   7                                                              switch(optr[optr_index]){
+ 269   8                                                                      case '+': opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 270   8                                                                      case '-': opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 271   8                                                              }
+ 272   7                                                              opnd_index++;
+ 273   7                                                      }
+ 274   6                                                      optr[optr_index]='-';
+ 275   6                                                      break;
+ 276   6                                              }
+ 277   5                                              c++;
+ 278   5                                              continue;
+ 279   5                                      }
+ 280   4                                      optr_index++;
+ 281   4                                      optr[optr_index]='-';
+ 282   4                              }
+ 283   3                              c++;
+ 284   3                              continue;
+ 285   3                      }
+ 286   2                      //*c是 × 情况
+ 287   2                      if(*c=='*') {
+ 288   3                              num_stack_index--;
+ 289   3                              if(num_stack_index==-1){// ) 已经提取一遍左面了，) 后的运算符 就不用再提左面了
+ 290   4                                      num_stack_index=0;
+ 291   4                                      goto c3;
+ 292   4                              }
+ 293   3                              //将*前一个数抽出存入opnd，num_temp是从字符串中成功抽取的一个数,并且已经变成double
+ 294   3                              for(i=num_stack_index,j=1; i>=0; i--,j*=10) {
+ 295   4                                      if(num_stack[i] != '.')
+ 296   4                                              num_temp+=((num_stack[i]-'0')*j);
+ 297   4                                      
+ 298   4                                      if(num_stack[i]=='.'){
+ 299   5                                              for(k=num_stack_index-i;k>0;k--) {
+ 300   6                                                      num_temp/=10;
+ 301   6                                              }
+ 302   5                                              j=0.1;//下一次j还是1
+ 303   5                                      }
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 6   
+
+ 304   4                              }
+ 305   3                              opnd[opnd_index]=num_temp;
+ 306   3                              opnd_index++;
+ 307   3                              num_temp=0;//临时数初始化
+ 308   3                              num_stack_index=0;//临时栈下标初始化
+ 309   3                              //存 * 的一些操作
+ 310   3                              c3:
+ 311   3                              if(optr[optr_index]==0) {//如果optr为空,直接进入
+ 312   4                                      optr[optr_index]='*';//先不++，因为下面是判断上一个入栈负号
+ 313   4                              }//如果optr不为空
+ 314   3                              else if(optr[optr_index]=='+') {//遇到+号不运算直接存进去
+ 315   4                                      optr_index++;
+ 316   4                                      optr[optr_index]='*';
+ 317   4                              }else if(optr[optr_index]=='-') {
+ 318   4                                      optr_index++;
+ 319   4                                      optr[optr_index]='*';
+ 320   4                              }else if(optr[optr_index]=='*') {//*遇到*,左提俩=新数，新数放入,*放入原来*位置,也就是不用操作
+ 321   4                                      opnd_index-=2;
+ 322   4                                      temp=opnd[opnd_index]*opnd[opnd_index+1];
+ 323   4                                      opnd[opnd_index]=temp;
+ 324   4                                      opnd_index++;
+ 325   4                                      
+ 326   4                              }else if(optr[optr_index]=='/') {
+ 327   4                                      opnd_index-=2;
+ 328   4                                      temp=opnd[opnd_index]/opnd[opnd_index+1];
+ 329   4                                      opnd[opnd_index]=temp;
+ 330   4                                      opnd_index++;
+ 331   4                                      
+ 332   4                                      optr[optr_index]='*';//*替换/的位置
+ 333   4                              }else if(optr[optr_index]=='('){//如果是 ( 直接存进去
+ 334   4                                      if(CalByButton_r==1){//这个情况是 由 ) 计算后 的 (
+ 335   5                                              if((optr_index-1)>=0){//处理 6*(1-2*2)+3会=0 的问题 /*存之前应该再判断一下 原 ( 下的符号*/      
+ 336   6                                                      if(optr[optr_index-1]!='+' && optr[optr_index-1]!='-'){//处理6-(5+2)*6 *入之前 把 - 号给算了
+ 337   7                                                              optr_index--;
+ 338   7                                                              opnd_index-=2;
+ 339   7                                                              switch(optr[optr_index]){ //这是运算符栈顶符号，此时 ) 没存进去
+ 340   8                                                                      case '+':opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 341   8                                                                      case '-':opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 342   8                                                                      case '*':opnd[opnd_index]=opnd[opnd_index]*opnd[opnd_index+1];break;
+ 343   8                                                                      case '/':opnd[opnd_index]=opnd[opnd_index]/opnd[opnd_index+1];break;
+ 344   8                                                                      case '(':optr_index++;opnd_index++;break;
+ 345   8                                                              //如果是 ( 下还是 ( 只需将optr_index和opnd_index归位即可
+ 346   8                                                              }
+ 347   7                                                              opnd_index++;
+ 348   7                                                              optr[optr_index]='*';
+ 349   7                                                              CalByButton_r=0;//归位
+ 350   7                                                              c++;
+ 351   7                                                              continue;
+ 352   7                                                      }
+ 353   6                                              }
+ 354   5                                              optr[optr_index]='*';
+ 355   5                                              CalByButton_r=0;//归位
+ 356   5                                              c++;
+ 357   5                                              continue;
+ 358   5                                      }
+ 359   4                                      optr_index++;
+ 360   4                                      optr[optr_index]='*';
+ 361   4                              }
+ 362   3                              c++;
+ 363   3                              continue;
+ 364   3                      }
+ 365   2                      //*c是 / 情况
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 7   
+
+ 366   2                      if(*c=='/') {
+ 367   3                              num_stack_index--;
+ 368   3                              if(num_stack_index==-1){// ) 已经提取一遍左面了，) 后的运算符 就不用再提左面了
+ 369   4                                      num_stack_index=0;
+ 370   4                                      goto c4;
+ 371   4                              }
+ 372   3                              //将*前一个数抽出存入opnd，num_temp是从字符串中成功抽取的一个数,并且已经变成double
+ 373   3                              for(i=num_stack_index,j=1; i>=0; i--,j*=10) {
+ 374   4                                      if(num_stack[i] != '.')
+ 375   4                                              num_temp+=((num_stack[i]-'0')*j);
+ 376   4                                      
+ 377   4                                      if(num_stack[i]=='.'){
+ 378   5                                              for(k=num_stack_index-i;k>0;k--) {
+ 379   6                                                      num_temp/=10;
+ 380   6                                              }
+ 381   5                                              j=0.1;//下一次j还是1
+ 382   5                                      }
+ 383   4                              }
+ 384   3                              opnd[opnd_index]=num_temp;
+ 385   3                              opnd_index++;
+ 386   3                              num_temp=0;//临时数初始化
+ 387   3                              num_stack_index=0;//临时栈下标初始化
+ 388   3                              c4:
+ 389   3                              //存 / 的一些操作
+ 390   3                              if(optr[optr_index]==0) {//如果optr为空,直接进入
+ 391   4                                      optr[optr_index]='/';//先不++，因为下面是判断上一个入栈负号
+ 392   4                              }//如果optr不为空
+ 393   3                              else if(optr[optr_index]=='+') {//遇到+号不运算直接存进去
+ 394   4                                      optr_index++;
+ 395   4                                      optr[optr_index]='/';
+ 396   4                              }else if(optr[optr_index]=='-') {
+ 397   4                                      optr_index++;
+ 398   4                                      optr[optr_index]='/';
+ 399   4                              }else if(optr[optr_index]=='*') {
+ 400   4                                      opnd_index-=2;
+ 401   4                                      temp=opnd[opnd_index]*opnd[opnd_index+1];
+ 402   4                                      opnd[opnd_index]=temp;
+ 403   4                                      opnd_index++;
+ 404   4                                      
+ 405   4                                      optr[optr_index]='/';// /替换*的位置
+ 406   4                              }else if(optr[optr_index]=='/') {// /遇到/,左提俩=新数，新数放入,/放入原来/位置,也就是不用操作
+ 407   4                                      opnd_index-=2;
+ 408   4                                      temp=opnd[opnd_index]/opnd[opnd_index+1];
+ 409   4                                      opnd[opnd_index]=temp;
+ 410   4                                      opnd_index++;
+ 411   4                              }else if(optr[optr_index]=='('){//如果是 ( 直接存进去
+ 412   4                                      if(CalByButton_r==1){//这个情况是 由 ) 计算后 的 (                                      
+ 413   5                                              if((optr_index-1)>=0){//处理 6*(1-2*2)+3会=0 的问题 /*存之前应该再判断一下 原 ( 下的符号*/      
+ 414   6                                                      if(optr[optr_index-1]!='+' && optr[optr_index-1]!='-'){//处理6-(5+2)/6 /入之前 把 - 号给算了
+ 415   7                                                              optr_index--;
+ 416   7                                                              opnd_index-=2;
+ 417   7                                                              switch(optr[optr_index]){ //这是运算符栈顶符号，此时 ) 没存进去
+ 418   8                                                                      case '+':opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 419   8                                                                      case '-':opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 420   8                                                                      case '*':opnd[opnd_index]=opnd[opnd_index]*opnd[opnd_index+1];break;
+ 421   8                                                                      case '/':opnd[opnd_index]=opnd[opnd_index]/opnd[opnd_index+1];break;
+ 422   8                                                                      case '(':optr_index++;opnd_index++;break;
+ 423   8                                                              //如果是 ( 下还是 ( 只需将optr_index和opnd_index归位即可
+ 424   8                                                              }
+ 425   7                                                              opnd_index++;
+ 426   7                                                              optr[optr_index]='/';
+ 427   7                                                              CalByButton_r=0;//归位
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 8   
+
+ 428   7                                                              c++;
+ 429   7                                                              continue;
+ 430   7                                                      }
+ 431   6                                              }
+ 432   5                                              optr[optr_index]='/';
+ 433   5                                              CalByButton_r=0;//归位
+ 434   5                                              c++;
+ 435   5                                              continue;
+ 436   5                                      }
+ 437   4                                      optr_index++;
+ 438   4                                      optr[optr_index]='/';
+ 439   4                              }
+ 440   3                              c++;
+ 441   3                              continue;
+ 442   3                      }
+ 443   2                      //是 ( 情况
+ 444   2                      if(*c=='('){//直接入操作符栈
+ 445   3                              if(optr_index==0){
+ 446   4                                      if(optr[0]!='+' && optr[0]!='-' && optr[0]!='*' && optr[0]!='/' && optr[0]!='('){
+ 447   5                                              optr[optr_index]='(';
+ 448   5                                              c++;
+ 449   5                                              continue;
+ 450   5                                      }
+ 451   4                              }
+ 452   3                              optr_index++;
+ 453   3                              optr[optr_index]='(';
+ 454   3                              c++;
+ 455   3                              continue;
+ 456   3                      }
+ 457   2                      //是 ) 情况
+ 458   2                      if(*c==')'){
+ 459   3                              num_stack_index--;
+ 460   3                              //将*前一个数抽出存入opnd，num_temp是从字符串中成功抽取的一个数,并且已经变成double
+ 461   3                              for(i=num_stack_index,j=1; i>=0; i--,j*=10) {
+ 462   4                                      if(num_stack[i] != '.')
+ 463   4                                              num_temp+=((num_stack[i]-'0')*j);
+ 464   4                                      
+ 465   4                                      if(num_stack[i]=='.'){
+ 466   5                                              for(k=num_stack_index-i;k>0;k--) {
+ 467   6                                                      num_temp/=10;
+ 468   6                                              }
+ 469   5                                              j=0.1;//下一次j还是1
+ 470   5                                      }
+ 471   4                              }
+ 472   3                              opnd[opnd_index]=num_temp;
+ 473   3                              opnd_index++;
+ 474   3                              num_temp=0;//临时数初始化
+ 475   3                              num_stack_index=0;//临时栈下标初始化
+ 476   3                              
+ 477   3                              while(1){//用while是处理 这种情况 (1-5*2) 也就是括号内的多项式
+ 478   4                                      opnd_index-=2;
+ 479   4                                      switch(optr[optr_index]){ //这是运算符栈顶符号，此时 ) 没存进去
+ 480   5                                              case '+':opnd[opnd_index]=opnd[opnd_index]+opnd[opnd_index+1];break;
+ 481   5                                              case '-':opnd[opnd_index]=opnd[opnd_index]-opnd[opnd_index+1];break;
+ 482   5                                              case '*':opnd[opnd_index]=opnd[opnd_index]*opnd[opnd_index+1];break;
+ 483   5                                              case '/':opnd[opnd_index]=opnd[opnd_index]/opnd[opnd_index+1];break;
+ 484   5                                      }
+ 485   4                                      opnd_index++;
+ 486   4                                      optr_index--;//运算符栈下降一位
+ 487   4                                      if(optr[optr_index]=='('){
+ 488   5                                              CalByButton_r=1; //上面有说明
+ 489   5                                              break;
+C51 COMPILER V9.01   CALCULATE                                                             07/09/2017 23:40:40 PAGE 9   
+
+ 490   5                                      }
+ 491   4                                      
+ 492   4                              }
+ 493   3                      
+ 494   3                      }
+ 495   2                      
+ 496   2                      c++;//指针在最后时刻移动
+ 497   2              }
+ 498   1              
+ 499   1              ///////////////////////////////////////////
+ 500   1                      num_stack_index--;
+ 501   1                      //将+前一个数抽出存入opnd，num_temp是从字符串中成功抽取的一个数,并且已经变成double
+ 502   1                      for(i=num_stack_index,j=1; i>=0; i--,j*=10) {
+ 503   2                              if(num_stack[i] != '.')
+ 504   2                                      num_temp+=((num_stack[i]-'0')*j);
+ 505   2                              
+ 506   2                              if(num_stack[i]=='.'){
+ 507   3                                      for(k=num_stack_index-i;k>0;k--) {
+ 508   4                                              num_temp/=10;
+ 509   4                                      }
+ 510   3                                      j=0.1;//下一次j还是1
+ 511   3                              }
+ 512   2                      }
+ 513   1                      opnd[opnd_index]=num_temp;
+ 514   1                      opnd_index++;
+ 515   1                      num_temp=0;//临时数初始化
+ 516   1                      num_stack_index=0;//临时栈下标初始化
+ 517   1              
+ 518   1              i=optr_index;
+ 519   1              do{
+ 520   2                      switch(optr[i]){
+ 521   3                              case '+':opnd[i]=opnd[i]+opnd[i+1];break;
+ 522   3                              case '-':opnd[i]=opnd[i]-opnd[i+1];break;
+ 523   3                              case '*':opnd[i]=opnd[i]*opnd[i+1];break;
+ 524   3                              case '/':opnd[i]=opnd[i]/opnd[i+1];break;
+ 525   3                      }
+ 526   2                      i--;
+ 527   2              }while(i!=-1);
+ 528   1              result=opnd[0];
+ 529   1              
+ 530   1              return result;
+ 531   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =  11298    ----
+   CONSTANT SIZE    =    198    ----
+   XDATA SIZE       =   ----     627
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

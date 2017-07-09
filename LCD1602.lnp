@@ -1,0 +1,6 @@
+"STARTUP.obj",
+"lcd.obj",
+"calculate.obj",
+"mian.obj" 
+TO "LCD1602" 
+RAMSIZE(256) 
